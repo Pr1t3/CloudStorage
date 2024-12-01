@@ -1,0 +1,16 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Add file</title>
+</head>
+<body>
+    <h1>Add file</h1>
+    <form action="http://localhost:9998/add_file/" method="POST" enctype="multipart/form-data" style="flex-direction: column;display: flex;">
+        <label for="fileToUpload">Выберите файл для загрузки:</label>
+        <input type="file" name="fileToUpload" id="fileToUpload">
+        <input type="submit" value="Загрузить файл" name="submit">
+    </form>    
+</body>
+</html>

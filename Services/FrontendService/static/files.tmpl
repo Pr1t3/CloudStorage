@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Мой Диск</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #f5f5f5;
+        }
+        header {
+            background-color: #007bff;
+            color: white;
+            padding: 10px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        header h1 {
+            margin: 0;
+            font-size: 24px;
+        }
+        header button {
+            background-color: white;
+            color: #007bff;
+            border: none;
+            padding: 10px 20px;
+            cursor: pointer;
+            font-size: 16px;
+            border-radius: 4px;
+        }
+        .container {
+            margin: 20px;
+        }
+        .file-list {
+            margin: 20px 0;
+            padding: 10px;
+            background-color: white;
+            border-radius: 8px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+        }
+        .file-list h2 {
+            margin: 0;
+            font-size: 18px;
+        }
+        .file-list ul {
+            list-style-type: none;
+            padding: 0;
+        }
+        .file-list ul li {
+            padding: 8px 0;
+            border-bottom: 1px solid #ddd;
+        }
+        .actions {
+            display: flex;
+            gap: 10px;
+        }
+        button {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            cursor: pointer;
+            font-size: 16px;
+            border-radius: 4px;
+        }
+        #loginModal {
+            display: none;
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background-color: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 0 15px rgba(0, 0, 0, 0.3);
+            width: 300px;
+        }
+        #loginModal input {
+            width: 100%;
+            padding: 10px;
+            margin: 10px 0;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+        }
+        #loginModal button {
+            width: 100%;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            padding: 10px;
+            cursor: pointer;
+            font-size: 16px;
+            border-radius: 4px;
+        }
+        #loginModal button.close {
+            background-color: #f44336;
+            margin-top: 10px;
+        }
+    </style>
+</head>
+<body>
+
+<header>
+    <h1>Мой Диск</h1>
+</header>
+
+<div class="container">
+    <div class="file-list">
+        <h2>Мои файлы</h2>
+        <ul>
+            {{ if .Files }}
+                {{ range .Files }}
+                    <li style="display: flex;flex-direction: row; align-items:center">
+                        <p style="width: 20%">Название: {{ .FileName }}</p>
+                        <form method="Post" action="http://localhost:9998/delete/{{ .Hash }}" style="margin-left: 39%; width: 10%">
+                            <button type="submit">Удалить</button>
+                        </form>
+                        <form method="GET" action="http://localhost:9997/files/{{ .Hash }}" style="margin-left: 2%; width: 10%">
+                            <button type="submit">Просмотреть</button>
+                        </form>
+                        {{ if .ShareStatus }}
+                            <form method="POST" action="http://localhost:9998/stop-share-status/{{ .Hash }}" style="margin-left: 2%; width: 10%">
+                                <button type="submit">Перестать делиться</button>
+                            </form>
+                        {{ else }}
+                            <form method="POST" action="http://localhost:9998/start-share-status/{{ .Hash }}" style="margin-left: 2%; width: 10%">
+                                <button type="submit">Поделиться</button>
+                            </form>
+                        {{ end }}
+                        <form method="GET" action="http://localhost:9998/download/{{ .Hash }}" style="margin-left: 2%; width: 5%">
+                            <button type="submit">Скачать</button>
+                        </form>
+                    </li>
+                {{ end }}
+            {{ else }}
+                <li>Вы пока что не загрузили ни одного файла!</li>
+            {{ end }}
+        </ul>
+    </div>
+    <div class="actions">
+        <form method="POST" action="http://localhost:9997/add_file/">
+            <button type="submit">Добавить файл</button>
+        </form>
+        <button>Создать файл</button>
+        <form method="POST" action="http://localhost:9998/logout/">
+            <button type="submit">Выйти</button>
+        </form>
+    </div>
+</div>
+</body>
+</html>
