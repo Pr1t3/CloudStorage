@@ -204,7 +204,14 @@ func (f *FilesHandler) AddFile() http.Handler {
 		fileName := fileHeader.Filename
 
 		fileType := fileHeader.Header.Get("Content-Type")
-
+		if _, err := os.Stat("./uploads/"); os.IsNotExist(err) {
+			err = os.Mkdir("./uploads/", os.ModePerm)
+			if err != nil {
+				log.Println(err)
+				http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+				return
+			}
+		}
 		dir := "./uploads/" + strconv.Itoa(userId)
 		if _, err := os.Stat(dir); os.IsNotExist(err) {
 			err = os.Mkdir(dir, os.ModePerm)
