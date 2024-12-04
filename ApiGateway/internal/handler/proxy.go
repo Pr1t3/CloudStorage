@@ -29,7 +29,10 @@ func ProxyHandlerRedirect(target, targetRedir string) http.Handler {
 			return
 		}
 		defer resp.Body.Close()
-
+		if resp.StatusCode != http.StatusOK {
+			http.Error(w, "Server Internal Error", http.StatusInternalServerError)
+			return
+		}
 		for key, values := range resp.Header {
 			for _, value := range values {
 				w.Header().Set(key, value)
@@ -65,7 +68,10 @@ func ProxyHandler(target string) http.Handler {
 			return
 		}
 		defer resp.Body.Close()
-
+		if resp.StatusCode != http.StatusOK {
+			http.Error(w, "Server Internal Error", http.StatusInternalServerError)
+			return
+		}
 		for key, values := range resp.Header {
 			for _, value := range values {
 				w.Header().Set(key, value)

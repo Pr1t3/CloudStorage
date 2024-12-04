@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Профиль пользователя</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            padding: 20px;
+        }
+        .profile-container {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+        }
+        .profile-container img {
+            width: 100px;
+            height: 100px;
+            border-radius: 50%;
+        }
+        .profile-info {
+            flex: 1;
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        input[type="password"] {
+            padding: 8px;
+            width: 100%;
+            margin-top: 5px;
+        }
+        button {
+            padding: 10px 20px;
+            cursor: pointer;
+        }
+        .error {
+            color: red;
+            font-size: 12px;
+        }
+    </style>
+</head>
+<body>
+
+    <h1>Профиль пользователя</h1>
+
+    <div class="profile-container">
+        <img src="data:{{ .PhotoType }}; base64, {{ .PhotoData }}" alt="Фото пользователя">
+        <div class="profile-info">
+            <p>Email: {{ .Email }}</p>
+        </div>
+    </div>
+
+    <h2>Изменить пароль</h2>
+    <form method="POST" action="http://localhost:9997/add_file/" onsubmit="return validateForm()">
+        <div class="form-group">
+            <label for="oldPassword">Старый пароль:</label>
+            <input type="password" id="oldPassword" name="oldPassword" required>
+        </div>
+
+        <div class="form-group">
+            <label for="newPassword">Новый пароль:</label>
+            <input type="password" id="newPassword" name="newPassword" required>
+        </div>
+
+        <div class="form-group">
+            <label for="confirmPassword">Подтвердите новый пароль:</label>
+            <input type="password" id="confirmPassword" name="confirmPassword" required>
+        </div>
+
+        <button type="submit">Сменить пароль</button>
+    </form>
+
+    <p id="errorMessage" class="error"></p>
+
+    <script>
+        function validateForm() {
+            const newPassword = document.getElementById("newPassword").value;
+            const confirmPassword = document.getElementById("confirmPassword").value;
+            const errorMessage = document.getElementById("errorMessage");
+
+            if (newPassword !== confirmPassword) {
+                errorMessage.textContent = "Новый пароль и подтверждение пароля не совпадают.";
+                return false;
+            }
+
+            errorMessage.textContent = "";
+            return true;
+        }
+
+        document.getElementById("changePasswordForm").onsubmit = async function (e) {
+            e.preventDefault();
+
+            const form = e.target;
+            const formData = new FormData(form);
+            const errorMessage = document.getElementById("errorMessage");
+
+            try {
+                const response = await fetch(form.action, {
+                    method: form.method,
+                    body: formData
+                });
+
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    errorMessage.textContent = errorData.error || "Произошла ошибка при изменении пароля.";
+                } else {
+                    alert("Пароль успешно изменен.");
+                    form.reset();
+                }
+            } catch (error) {
+                errorMessage.textContent = "Не удалось подключиться к серверу.";
+            }
+        };
+    </script>
+</body>
+</html>

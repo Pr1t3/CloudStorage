@@ -1,10 +1,11 @@
 package handler
 
 import (
+	"FrontendService/internal/models"
 	"bytes"
 	"encoding/base64"
 	"encoding/json"
-	"fmt"
+	"errors"
 	"html/template"
 	"io"
 	"log"
@@ -13,46 +14,18 @@ import (
 	"time"
 )
 
-func fetchFile(r *http.Request) ([]byte, error) {
-	proxyReq, err := http.NewRequest(http.MethodGet, "http://localhost:9996/download/"+strings.Split(r.URL.Path, "/")[2], r.Body)
-	if err != nil {
-		return nil, err
-	}
-
-	for key, values := range r.Header {
-		for _, value := range values {
-			proxyReq.Header.Add(key, value)
-		}
-	}
-	for _, cookie := range r.Cookies() {
-		proxyReq.AddCookie(cookie)
-	}
-
-	client := &http.Client{}
-	resp, err := client.Do(proxyReq)
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("failed to fetch file: %s", resp.Status)
-	}
-
-	fileData, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, err
-	}
-
-	return fileData, nil
+type Claims struct {
+	Email  string
+	UserId int
+	exp    time.Time
+	iat    time.Time
 }
 
-func ProxyRequest(r *http.Request, target string) ([]byte, error) {
-	proxyReq, err := http.NewRequest(r.Method, target, r.Body)
+func ProxyRequest(r *http.Request, target string, reqBody io.Reader, method string) ([]byte, *http.Header, error) {
+	proxyReq, err := http.NewRequest(method, target, reqBody)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
-
 	for key, values := range r.Header {
 		for _, value := range values {
 			proxyReq.Header.Add(key, value)
@@ -65,12 +38,14 @@ func ProxyRequest(r *http.Request, target string) ([]byte, error) {
 	client := &http.Client{}
 	resp, err := client.Do(proxyReq)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
+	}
+	if resp.StatusCode != http.StatusOK {
+		return nil, nil, errors.New("Status Forbidden")
 	}
 	defer resp.Body.Close()
 	body, err := io.ReadAll(resp.Body)
-	r.Body = io.NopCloser(io.Reader(bytes.NewReader(body)))
-	return body, nil
+	return body, &resp.Header, err
 }
 
 func LoginHandler() http.Handler {
@@ -117,23 +92,13 @@ func ShowAllFiles() http.Handler {
 		}
 		defer r.Body.Close()
 		r.Body = io.NopCloser(io.Reader(bytes.NewReader(body)))
-		bodyResp, err := ProxyRequest(r, "http://localhost:9996/files")
+		bodyResp, _, err := ProxyRequest(r, "http://localhost:9996/files", r.Body, http.MethodGet)
 		r.Body = io.NopCloser(io.Reader(bytes.NewReader(body)))
 
-		type File struct {
-			ID          int       `json:"ID"`
-			Hash        string    `json:"Hash"`
-			UserID      int       `json:"User_id"`
-			FileName    string    `json:"FileName"`
-			FilePath    string    `json:"FilePath"`
-			FileType    string    `json:"FileType"`
-			ShareStatus bool      `json:"ShareStatus"`
-			UploadedAt  time.Time `json:"Uploaded_at"`
-		}
 		type dataStruct struct {
-			Files []File
+			Files []models.File
 		}
-		var files []File
+		var files []models.File
 		err = json.NewDecoder(io.Reader(bytes.NewReader((bodyResp)))).Decode(&files)
 		if err != nil {
 			http.Error(w, "Failed to decode JSON", http.StatusBadRequest)
@@ -174,7 +139,7 @@ func ShowFile() http.Handler {
 		defer r.Body.Close()
 		r.Body = io.NopCloser(io.Reader(bytes.NewReader(body)))
 
-		bodyResp, err := ProxyRequest(r, "http://localhost:9996"+r.URL.Path)
+		bodyResp, _, err := ProxyRequest(r, "http://localhost:9996"+r.URL.Path, r.Body, http.MethodGet)
 		r.Body = io.NopCloser(io.Reader(bytes.NewReader(body)))
 
 		if bodyResp == nil {
@@ -183,14 +148,9 @@ func ShowFile() http.Handler {
 		}
 
 		type File struct {
-			ID         int       `json:"ID"`
-			UserID     int       `json:"User_id"`
-			FileName   string    `json:"FileName"`
-			FilePath   string    `json:"FilePath"`
-			FileType   string    `json:"FileType"`
-			UploadedAt time.Time `json:"Uploaded_at"`
-			Format     string
-			FileData   string
+			models.File
+			Format   string
+			FileData string
 		}
 		type dataStruct struct {
 			File File
@@ -203,7 +163,7 @@ func ShowFile() http.Handler {
 		}
 		file.Format = strings.Split(file.FileType, "/")[0]
 
-		fileDataBytes, err := fetchFile(r)
+		fileDataBytes, _, err := ProxyRequest(r, "http://localhost:9996/download/"+strings.Split(r.URL.Path, "/")[2], r.Body, http.MethodGet)
 		if err != nil {
 			http.Error(w, "Error fetching file", http.StatusInternalServerError)
 			return
@@ -230,6 +190,70 @@ func ShowFile() http.Handler {
 			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 			return
 		}
+		err = ts.Execute(w, data)
+		if err != nil {
+			log.Println(err)
+			http.Error(w, "Failed to execute template", http.StatusInternalServerError)
+			return
+		}
+	})
+}
+
+func ShowProfile() http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet {
+			http.Error(w, "Method is not allowed", http.StatusMethodNotAllowed)
+			return
+		}
+		body, err := io.ReadAll(r.Body)
+		if err != nil {
+			http.Error(w, "Ошибка при чтении тела запроса", http.StatusInternalServerError)
+			return
+		}
+		defer r.Body.Close()
+		r.Body = io.NopCloser(io.Reader(bytes.NewReader(body)))
+
+		photoData, headers, err := ProxyRequest(r, "http://localhost:9999/get-profile-photo", r.Body, http.MethodGet)
+		r.Body = io.NopCloser(io.Reader(bytes.NewReader(body)))
+		if err != nil {
+			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+			return
+		}
+
+		respBody, _, err := ProxyRequest(r, "http://localhost:9999/get-claims/", r.Body, http.MethodGet)
+
+		if err != nil {
+			http.Error(w, "Server Internal Error", http.StatusInternalServerError)
+			return
+		}
+
+		var claims Claims
+
+		if err := json.Unmarshal(respBody, &claims); err != nil {
+			http.Error(w, "Status Forbidden", http.StatusForbidden)
+			return
+		}
+
+		templates := []string{
+			"./static/profile.tmpl",
+		}
+		ts, err := template.ParseFiles(templates...)
+		if err != nil {
+			log.Println(err)
+			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+			return
+		}
+
+		var data struct {
+			Email     string
+			PhotoType string
+			PhotoData string
+		}
+
+		data.PhotoData = base64.StdEncoding.EncodeToString(photoData)
+		data.PhotoType = headers.Get("Photo-Type")
+		data.Email = claims.Email
+
 		err = ts.Execute(w, data)
 		if err != nil {
 			log.Println(err)

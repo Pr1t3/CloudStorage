@@ -27,6 +27,7 @@ func main() {
 	mux.Handle("/validate/", authHandler.Validate())
 	mux.Handle("/get-claims/", middleware.VerifyAuthMiddleware(authHandler.GetClaims()))
 	mux.Handle("/logout/", middleware.VerifyAuthMiddleware(authHandler.Logout()))
+	mux.Handle("/get-profile-photo", middleware.VerifyAuthMiddleware(authHandler.GetProfilePhoto()))
 
 	log.Println("Auth service starting on port 9999...")
 	if err := http.ListenAndServe(":9999", mux); err != nil {

@@ -34,3 +34,7 @@ func (s *AuthService) Register(email, hashedPassword string) error {
 
 	return s.repo.CreateUser(email, hashedPassword)
 }
+
+func (s *AuthService) GetUserByEmail(email string) (*models.User, error) {
+	return s.repo.GetUserByEmail(email)
+}

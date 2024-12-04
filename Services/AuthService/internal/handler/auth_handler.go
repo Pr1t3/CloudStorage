@@ -3,17 +3,49 @@ package handler
 import (
 	"AuthService/internal/models"
 	"AuthService/internal/service"
+	"bytes"
 	"encoding/json"
+	"errors"
+	"io"
+	"log"
 	"net/http"
 	"time"
 )
 
+func (f *AuthHandler) ProxyRequest(r *http.Request, target string, reqBody io.Reader, method string) ([]byte, *http.Header, error) {
+	proxyReq, err := http.NewRequest(method, target, reqBody)
+	if err != nil {
+		return nil, nil, err
+	}
+	for key, values := range r.Header {
+		for _, value := range values {
+			proxyReq.Header.Add(key, value)
+		}
+	}
+	for _, cookie := range r.Cookies() {
+		proxyReq.AddCookie(cookie)
+	}
+
+	client := &http.Client{}
+	resp, err := client.Do(proxyReq)
+	if err != nil {
+		return nil, nil, err
+	}
+	if resp.StatusCode != http.StatusOK {
+		return nil, nil, f.forbiddenError
+	}
+	defer resp.Body.Close()
+	body, err := io.ReadAll(resp.Body)
+	return body, &resp.Header, err
+}
+
 type AuthHandler struct {
-	authService *service.AuthService
+	authService    *service.AuthService
+	forbiddenError error
 }
 
 func NewAuthHandler(authService *service.AuthService) *AuthHandler {
-	return &AuthHandler{authService: authService}
+	return &AuthHandler{authService: authService, forbiddenError: errors.New("Status Forbidden")}
 }
 
 func (h *AuthHandler) Login() http.Handler {
@@ -155,5 +187,78 @@ func (h *AuthHandler) Logout() http.Handler {
 			Expires: time.Unix(0, 0),
 			MaxAge:  -1,
 		})
+	})
+}
+
+func (h *AuthHandler) GetProfilePhoto() http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet {
+			http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
+			return
+		}
+		body, err := io.ReadAll(r.Body)
+		if err != nil {
+			http.Error(w, "Ошибка при чтении тела запроса", http.StatusInternalServerError)
+			return
+		}
+		defer r.Body.Close()
+		r.Body = io.NopCloser(io.Reader(bytes.NewReader(body)))
+		token, err := r.Cookie("token")
+		if err != nil {
+			http.Error(w, "Internal Server error", http.StatusInternalServerError)
+			return
+		}
+		claims, err := models.GetClaimsFromToken(token.Value)
+		if err != nil {
+			http.Error(w, "Internal Server error", http.StatusInternalServerError)
+			return
+		}
+		user, err := h.authService.GetUserByEmail(claims.Email)
+		if err != nil {
+			http.Error(w, "Internal Server error", http.StatusInternalServerError)
+			return
+		}
+		if user == nil {
+			http.Error(w, "Internal Server error", http.StatusInternalServerError)
+			return
+		}
+		var reqBody struct {
+			FilePath string
+		}
+		if !user.Photo_path.Valid {
+			reqBody.FilePath = "./uploads/DefaultPhotoProfile.png"
+		} else {
+			reqBody.FilePath = user.Photo_path.String
+		}
+
+		jsonData, err := json.Marshal(reqBody)
+		if err != nil {
+			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+			log.Fatal(err)
+			return
+		}
+		respBody, headers, err := h.ProxyRequest(r, "http://localhost:9995/download", bytes.NewBuffer(jsonData), http.MethodGet)
+
+		if err != nil {
+			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+			return
+		}
+
+		if headers == nil {
+			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+			return
+		}
+
+		w.Header().Set("Content-Disposition", headers.Get("Content-Disposition"))
+		w.Header().Set("Content-Type", "application/octet-stream")
+		w.Header().Set("Content-Length", headers.Get("Content-Length"))
+		w.Header().Add("Photo-Type", user.Photo_type.String)
+
+		_, err = io.Copy(w, io.Reader(bytes.NewReader(respBody)))
+		if err != nil {
+			log.Println(err)
+			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+			return
+		}
 	})
 }

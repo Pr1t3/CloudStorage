@@ -21,10 +21,10 @@ func (u *UserRepo) CreateUser(email, password_hash string) error {
 }
 
 func (u *UserRepo) GetUserByEmail(email string) (*models.User, error) {
-	query := `SELECT id, email, password_hash, created_at, updated_at FROM users where email = ?`
+	query := `SELECT id, email, password_hash, photo_path, photo_type, created_at, updated_at FROM users where email = ?`
 	row := u.Db.QueryRow(query, email)
 	user := &models.User{}
-	err := row.Scan(&user.ID, &user.Email, &user.Password_hash, &user.Created_at, &user.Updated_at)
+	err := row.Scan(&user.ID, &user.Email, &user.Password_hash, &user.Photo_path, &user.Photo_type, &user.Created_at, &user.Updated_at)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, nil

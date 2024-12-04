@@ -22,7 +22,7 @@ func main() {
 
 	filesHandler := handler.NewFilesHandler(service.NewFilesService(*repository.NewRepository(db)))
 
-	mux.Handle("/files/", middleware.VerifyAuthMiddleware(filesHandler.GetFileByHash()))
+	mux.Handle("/files/", filesHandler.GetFileByHash())
 	mux.Handle("/files", middleware.VerifyAuthMiddleware(filesHandler.GetAllFiles()))
 	mux.Handle("/add_file/", middleware.VerifyAuthMiddleware(filesHandler.AddFile()))
 	mux.Handle("/download/", filesHandler.DownloadFile())

@@ -15,7 +15,8 @@ func main() {
 	mux.Handle("/files", middleware.VerifyAuthMiddleware(handler.ShowAllFiles()))
 	mux.Handle("/add_file/", middleware.VerifyAuthMiddleware(handler.AddFileHandler()))
 	mux.Handle("/files/", middleware.VerifyAuthMiddleware(handler.ShowFile()))
-	mux.Handle("/", handler.LoginHandler())
+	mux.Handle("/", middleware.VerifyNotAuthMiddleware(handler.LoginHandler()))
+	mux.Handle("/profile/", middleware.VerifyAuthMiddleware(handler.ShowProfile()))
 
 	log.Println("Frontend Service starting on port 9997...")
 	if err := http.ListenAndServe(":9997", mux); err != nil {

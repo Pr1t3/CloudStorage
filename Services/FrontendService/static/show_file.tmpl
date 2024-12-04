@@ -114,7 +114,7 @@
             {{ with .File}}
                 <h2>Файл {{ .FileName}}</h2>
                 {{ if eq .Format "image"}}
-                    <img src="data:{{ .FileType }};base64,{{.FileData}}" alt="File Image"/>
+                    <img src="data:{{ .FileType }};base64,{{.FileData}}" alt="Фотография"/>
                 {{ else if eq .Format "text" }}
                     <pre>{{.FileData}}</pre>
                 {{ end }}
