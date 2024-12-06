@@ -4,6 +4,8 @@ import (
 	"ApiGateway/internal/handler"
 	"log"
 	"net/http"
+
+	"github.com/rs/cors"
 )
 
 func main() {
@@ -17,9 +19,19 @@ func main() {
 	mux.Handle("/delete/", handler.ProxyHandlerRedirect("http://localhost:9996", "http://localhost:9997/files"))
 	mux.Handle("/start-share-status/", handler.ProxyHandlerRedirect("http://localhost:9996", "http://localhost:9997/files"))
 	mux.Handle("/stop-share-status/", handler.ProxyHandlerRedirect("http://localhost:9996", "http://localhost:9997/files"))
+	mux.Handle("/change-password", handler.ProxyHandlerRedirect("http://localhost:9999", "http://localhost:9997/profile/"))
+	mux.Handle("/upload-photo", handler.ProxyHandler("http://localhost:9999"))
+
+	services := []string{"http://localhost:9997", "http://localhost:9998", "http://localhost:9999", "http://localhost:9996", "http://localhost:9995"}
+	corsHandler := cors.New(cors.Options{
+		AllowedOrigins:   services,                                 // Разрешаем только домен фронтенда
+		AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE"}, // Разрешаем методы
+		AllowedHeaders:   []string{"Content-Type"},                 // Разрешаем заголовок Content-Type
+		AllowCredentials: true,                                     // Разрешаем куки
+	})
 
 	log.Println("API Gateway starting on port 9998...")
-	if err := http.ListenAndServe(":9998", mux); err != nil {
+	if err := http.ListenAndServe(":9998", corsHandler.Handler(mux)); err != nil {
 		log.Fatalf("Failed to start API Gateway: %v", err)
 	}
 }

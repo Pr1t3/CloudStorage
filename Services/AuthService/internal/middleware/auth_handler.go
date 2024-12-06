@@ -19,7 +19,6 @@ func VerifyAuthMiddleware(next http.Handler) http.Handler {
 		for _, cookie := range r.Cookies() {
 			proxyReq.AddCookie(cookie)
 		}
-
 		client := &http.Client{}
 		resp, err := client.Do(proxyReq)
 		if err != nil {

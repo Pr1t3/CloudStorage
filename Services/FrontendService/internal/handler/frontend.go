@@ -212,9 +212,9 @@ func ShowProfile() http.Handler {
 		}
 		defer r.Body.Close()
 		r.Body = io.NopCloser(io.Reader(bytes.NewReader(body)))
-
 		photoData, headers, err := ProxyRequest(r, "http://localhost:9999/get-profile-photo", r.Body, http.MethodGet)
 		r.Body = io.NopCloser(io.Reader(bytes.NewReader(body)))
+
 		if err != nil {
 			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 			return

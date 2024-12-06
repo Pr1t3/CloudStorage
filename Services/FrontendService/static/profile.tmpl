@@ -25,7 +25,7 @@
         .form-group {
             margin-bottom: 15px;
         }
-        input[type="password"] {
+        input[type="password"], input[type="file"] {
             padding: 8px;
             width: 100%;
             margin-top: 5px;
@@ -33,6 +33,13 @@
         button {
             padding: 10px 20px;
             cursor: pointer;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 5px;
+        }
+        button:hover {
+            background-color: #0059ff;
         }
         .error {
             color: red;
@@ -45,14 +52,16 @@
     <h1>Профиль пользователя</h1>
 
     <div class="profile-container">
-        <img src="data:{{ .PhotoType }}; base64, {{ .PhotoData }}" alt="Фото пользователя">
+        <img id="profileImage" src="data:{{ .PhotoType }}; base64, {{ .PhotoData }}" alt="Фото пользователя">
         <div class="profile-info">
             <p>Email: {{ .Email }}</p>
+            <input type="file" id="fileInput" name="photo" accept="image/*" style="display: none;" onchange="uploadImage(event)">
+            <button onclick="document.getElementById('fileInput').click();">Загрузить фото</button>
         </div>
     </div>
 
     <h2>Изменить пароль</h2>
-    <form method="POST" action="http://localhost:9997/add_file/" onsubmit="return validateForm()">
+    <form method="POST" action="http://localhost:9998/change-password" onsubmit="return validateForm()">
         <div class="form-group">
             <label for="oldPassword">Старый пароль:</label>
             <input type="password" id="oldPassword" name="oldPassword" required>
@@ -69,6 +78,10 @@
         </div>
 
         <button type="submit">Сменить пароль</button>
+    </form>
+
+    <form method="GET" action="http://localhost:9997/files" style="margin-top: 10px">
+        <button type="submit">Назад</button>
     </form>
 
     <p id="errorMessage" class="error"></p>
@@ -88,30 +101,33 @@
             return true;
         }
 
-        document.getElementById("changePasswordForm").onsubmit = async function (e) {
-            e.preventDefault();
-
-            const form = e.target;
-            const formData = new FormData(form);
+        async function uploadImage(event) {
+            const file = event.target.files[0];
             const errorMessage = document.getElementById("errorMessage");
 
+            if (!file) return;
+
+            const formData = new FormData();
+            formData.append('fileToUpload', file);
+
             try {
-                const response = await fetch(form.action, {
-                    method: form.method,
-                    body: formData
+                const response = await fetch('http://localhost:9998/upload-photo', {
+                    method: 'POST',
+                    body: formData,
+                    credentials: 'include' 
                 });
 
-                if (!response.ok) {
-                    const errorData = await response.json();
-                    errorMessage.textContent = errorData.error || "Произошла ошибка при изменении пароля.";
+                if (response.ok) {
+                    location.reload();
                 } else {
-                    alert("Пароль успешно изменен.");
-                    form.reset();
+                    const errorData = await response.json();
+                    errorMessage.textContent = errorData.error || "Произошла ошибка при загрузке фото.";
                 }
             } catch (error) {
+                console.log(error)
                 errorMessage.textContent = "Не удалось подключиться к серверу.";
             }
-        };
+        }
     </script>
 </body>
 </html>

@@ -38,3 +38,11 @@ func (s *AuthService) Register(email, hashedPassword string) error {
 func (s *AuthService) GetUserByEmail(email string) (*models.User, error) {
 	return s.repo.GetUserByEmail(email)
 }
+
+func (s *AuthService) ChangePassword(email, newPasswordHash string) error {
+	return s.repo.ChangePassword(email, newPasswordHash)
+}
+
+func (s *AuthService) UploadPhoto(userId int, photoPath, photoType string) error {
+	return s.repo.UploadPhoto(userId, photoPath, photoType)
+}

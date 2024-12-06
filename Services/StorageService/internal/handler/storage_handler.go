@@ -153,6 +153,77 @@ func (h *StorageHandler) UploadFile() http.Handler {
 	})
 }
 
+func (h *StorageHandler) UploadFileOnExactPlace() http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			http.Error(w, "Method is not allowed", http.StatusMethodNotAllowed)
+			return
+		}
+
+		if _, err := os.Stat("./uploads/"); os.IsNotExist(err) {
+			err = os.Mkdir("./uploads/", os.ModePerm)
+			if err != nil {
+				log.Println(err)
+				http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+				return
+			}
+		}
+
+		if _, err := os.Stat("./uploads/profile_photos/"); os.IsNotExist(err) {
+			err = os.Mkdir("./uploads/profile_photos/", os.ModePerm)
+			if err != nil {
+				log.Println(err)
+				http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+				return
+			}
+		}
+
+		filePath := r.Header.Get("FilePath")
+		dst, err := os.Create(filePath)
+		if err != nil {
+			log.Println(err)
+			http.Error(w, "Ошибка при сохранении файла", http.StatusInternalServerError)
+			return
+		}
+		defer dst.Close()
+
+		err = r.ParseMultipartForm(10 << 20)
+		if err != nil {
+			log.Println(err)
+			http.Error(w, "Ошибка при разборе формы", http.StatusBadRequest)
+			return
+		}
+
+		file, fileHeader, err := r.FormFile("fileToUpload")
+		if err != nil {
+			log.Println(err)
+			http.Error(w, "Ошибка при получении файла", http.StatusBadRequest)
+			return
+		}
+
+		_, err = io.Copy(dst, file)
+		if err != nil {
+			log.Println(err)
+			http.Error(w, "Ошибка при копировании файла", http.StatusInternalServerError)
+			return
+		}
+
+		var res struct {
+			FileType string
+		}
+
+		res.FileType = fileHeader.Header.Get("Content-Type")
+		result, err := json.Marshal(res)
+		if err != nil {
+			http.Error(w, "Internal Server error", http.StatusInternalServerError)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.Header().Set("Content-Length", fmt.Sprintf("%d", len(result)))
+		w.Write(result)
+	})
+}
+
 func (h *StorageHandler) DownloadFile() http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodGet {
@@ -173,7 +244,6 @@ func (h *StorageHandler) DownloadFile() http.Handler {
 		err = json.Unmarshal(body, &file)
 
 		openedFile, err := os.Open(file.FilePath)
-
 		if err != nil {
 			log.Println(err)
 			http.Error(w, "Internal Server Error", http.StatusInternalServerError)

@@ -2,6 +2,7 @@ package handler
 
 import (
 	"io"
+	"log"
 	"net/http"
 )
 
@@ -25,11 +26,13 @@ func ProxyHandlerRedirect(target, targetRedir string) http.Handler {
 		client := &http.Client{}
 		resp, err := client.Do(proxyReq)
 		if err != nil {
+			log.Println(err)
 			http.Error(w, "Failed to connect to service", http.StatusBadGateway)
 			return
 		}
 		defer resp.Body.Close()
 		if resp.StatusCode != http.StatusOK {
+			log.Println(err)
 			http.Error(w, "Server Internal Error", http.StatusInternalServerError)
 			return
 		}
@@ -38,7 +41,6 @@ func ProxyHandlerRedirect(target, targetRedir string) http.Handler {
 				w.Header().Set(key, value)
 			}
 		}
-
 		io.Copy(w, resp.Body)
 		http.Redirect(w, r, targetRedir, http.StatusSeeOther)
 	})
@@ -77,7 +79,6 @@ func ProxyHandler(target string) http.Handler {
 				w.Header().Set(key, value)
 			}
 		}
-
 		w.WriteHeader(resp.StatusCode)
 		io.Copy(w, resp.Body)
 	})

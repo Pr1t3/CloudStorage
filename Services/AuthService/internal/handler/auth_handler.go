@@ -9,6 +9,7 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"strconv"
 	"time"
 )
 
@@ -51,7 +52,7 @@ func NewAuthHandler(authService *service.AuthService) *AuthHandler {
 func (h *AuthHandler) Login() http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {
-			http.Error(w, "Page Not Found", http.StatusNotFound)
+			http.Error(w, "Method is not allowed", http.StatusMethodNotAllowed)
 			return
 		}
 		err := r.ParseForm()
@@ -84,7 +85,7 @@ func (h *AuthHandler) Login() http.Handler {
 func (h *AuthHandler) Register() http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {
-			http.Error(w, "Page Not Found", http.StatusNotFound)
+			http.Error(w, "Method is not allowed", http.StatusMethodNotAllowed)
 			return
 		}
 		err := r.ParseForm()
@@ -127,6 +128,10 @@ func (h *AuthHandler) Register() http.Handler {
 
 func (h *AuthHandler) Validate() http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet {
+			http.Error(w, "Method is not allowed", http.StatusMethodNotAllowed)
+			return
+		}
 		cookie, err := r.Cookie("token")
 		if err != nil {
 			http.Error(w, "Invalid token", http.StatusUnauthorized)
@@ -147,6 +152,10 @@ func (h *AuthHandler) Validate() http.Handler {
 
 func (h *AuthHandler) GetClaims() http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet {
+			http.Error(w, "Method is not allowed", http.StatusMethodNotAllowed)
+			return
+		}
 		cookie, err := r.Cookie("token")
 		if err != nil {
 			http.Error(w, "Invalid token", http.StatusUnauthorized)
@@ -225,6 +234,7 @@ func (h *AuthHandler) GetProfilePhoto() http.Handler {
 		var reqBody struct {
 			FilePath string
 		}
+
 		if !user.Photo_path.Valid {
 			reqBody.FilePath = "./uploads/DefaultPhotoProfile.png"
 		} else {
@@ -260,5 +270,103 @@ func (h *AuthHandler) GetProfilePhoto() http.Handler {
 			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 			return
 		}
+	})
+}
+
+func (h *AuthHandler) ChangePassword() http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			http.Error(w, "Method is not allowed", http.StatusMethodNotAllowed)
+			return
+		}
+		err := r.ParseForm()
+		if err != nil {
+			http.Error(w, "Failed to parse form", http.StatusBadRequest)
+			return
+		}
+
+		oldPassword := r.FormValue("oldPassword")
+		newPassword := r.FormValue("newPassword")
+		token, err := r.Cookie("token")
+		if err != nil {
+			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+			return
+		}
+		claims, err := models.GetClaimsFromToken(token.Value)
+		if err != nil {
+			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+			return
+		}
+		user, err := h.authService.GetUserByEmail(claims.Email)
+		if err != nil || user == nil {
+			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+			return
+		}
+		if !service.CheckPassword(user.Password_hash, oldPassword) {
+			http.Error(w, "Invalid Credentials", http.StatusForbidden)
+			return
+		}
+		hashedPassword, err := service.HashPassword(newPassword)
+		if err != nil {
+			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+			return
+		}
+		err = h.authService.ChangePassword(claims.Email, hashedPassword)
+		if err != nil {
+			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+			return
+		}
+	})
+}
+
+func (f *AuthHandler) UploadPhoto() http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			http.Error(w, "Method is not allowed", http.StatusMethodNotAllowed)
+			return
+		}
+		body, err := io.ReadAll(r.Body)
+		if err != nil {
+			http.Error(w, "Ошибка при чтении тела запроса", http.StatusInternalServerError)
+			return
+		}
+		defer r.Body.Close()
+		r.Body = io.NopCloser(io.Reader(bytes.NewReader(body)))
+
+		token, err := r.Cookie("token")
+		if err != nil {
+			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+			return
+		}
+		claims, err := models.GetClaimsFromToken(token.Value)
+		if err != nil {
+			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+			return
+		}
+
+		photoPath := "./uploads/profile_photos/" + strconv.Itoa(claims.UserId) + ".png"
+
+		r.Header.Add("FilePath", photoPath)
+
+		respBody, _, err := f.ProxyRequest(r, "http://localhost:9995/upload-on-exact-place", r.Body, http.MethodPost)
+		r.Body = io.NopCloser(io.Reader(bytes.NewReader(body)))
+
+		var responseData struct {
+			PhotoType string
+		}
+
+		if err := json.Unmarshal(respBody, &responseData); err != nil {
+			log.Println(err)
+			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+			return
+		}
+
+		err = f.authService.UploadPhoto(claims.UserId, photoPath, responseData.PhotoType)
+		if err != nil {
+			log.Println(err)
+			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+			return
+		}
+		w.WriteHeader(http.StatusOK)
 	})
 }

@@ -33,3 +33,15 @@ func (u *UserRepo) GetUserByEmail(email string) (*models.User, error) {
 	}
 	return user, nil
 }
+
+func (u *UserRepo) ChangePassword(email, newPasswordHash string) error {
+	query := `UPDATE users SET password_hash = ? where email = ?`
+	_, err := u.Db.Exec(query, newPasswordHash, email)
+	return err
+}
+
+func (u *UserRepo) UploadPhoto(userId int, photoPath, photoType string) error {
+	query := `UPDATE users SET photo_path = ?, photo_type = ? where id = ?`
+	_, err := u.Db.Exec(query, photoPath, photoType, userId)
+	return err
+}
