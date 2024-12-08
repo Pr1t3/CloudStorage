@@ -64,7 +64,7 @@ func VerifyNotAuthMiddleware(next http.Handler) http.Handler {
 		}
 		defer resp.Body.Close()
 		if resp.StatusCode == http.StatusOK {
-			http.Redirect(w, r, "http://localhost:9997/files", http.StatusFound)
+			http.Redirect(w, r, "http://localhost:9997/folders/", http.StatusFound)
 			return
 		}
 

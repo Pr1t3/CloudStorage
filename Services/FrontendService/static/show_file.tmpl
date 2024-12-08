@@ -111,22 +111,26 @@
 <div class="container">
     <div class="file-list">
         {{ if .File}}
-            {{ with .File}}
-                <h2>Файл {{ .FileName}}</h2>
-                {{ if eq .Format "image"}}
-                    <img src="data:{{ .FileType }};base64,{{.FileData}}" alt="Фотография"/>
-                {{ else if eq .Format "text" }}
-                    <pre>{{.FileData}}</pre>
-                {{ end }}
+            <h2>Файл {{ .File.FileName}}</h2>
+            {{ if eq .Format "image"}}
+                <img src="data:{{ .File.FileType }};base64,{{.FileData}}" alt="Фотография"/>
+            {{ else if eq .Format "text" }}
+                <pre>{{.FileData}}</pre>
             {{ end }}
         {{ else }}
             Файл не найден
         {{ end }}
     </div>
     <div class="actions">
-        <form method="GET" action="http://localhost:9997/files">
-            <button type="submit">Назад</button>
-        </form>
+        {{ if ne .FolderHash "" }}
+            <form method="GET" action="http://localhost:9997/folders/{{ .FolderHash }}">
+                <button type="submit">Назад</button>
+            </form>
+        {{ else }}
+            <form method="GET" action="http://localhost:9997/folders/">
+                <button type="submit">Назад</button>
+            </form>
+        {{ end }}
     </div>
 </div>
 </body>

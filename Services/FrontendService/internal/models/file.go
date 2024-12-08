@@ -1,14 +1,18 @@
 package models
 
-import "time"
+import (
+	"database/sql"
+	"time"
+)
 
 type File struct {
-	ID          int       `json:"ID"`
-	Hash        string    `json:"Hash"`
-	UserID      int       `json:"User_id"`
-	FileName    string    `json:"FileName"`
-	FilePath    string    `json:"FilePath"`
-	FileType    string    `json:"FileType"`
-	ShareStatus bool      `json:"ShareStatus"`
-	UploadedAt  time.Time `json:"Uploaded_at"`
+	ID          int
+	User_id     int
+	Hash        string
+	FileName    string
+	FileType    string
+	Size        int64
+	FolderId    sql.NullInt32
+	ShareStatus bool
+	Uploaded_at time.Time
 }

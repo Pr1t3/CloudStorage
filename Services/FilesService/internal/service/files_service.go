@@ -3,6 +3,7 @@ package service
 import (
 	"FilesService/internal/models"
 	"FilesService/internal/repository"
+	"errors"
 )
 
 type FilesService struct {
@@ -13,8 +14,8 @@ func NewFilesService(r repository.FileRepo) *FilesService {
 	return &FilesService{repo: r}
 }
 
-func (s *FilesService) GetAllFiles(userId int) ([]models.File, error) {
-	files, err := s.repo.GetUserFiles(userId)
+func (s *FilesService) GetFilesInFolder(folderId *int, userId int) ([]models.File, error) {
+	files, err := s.repo.GetFilesInFolder(folderId, userId)
 	if err != nil {
 		return nil, err
 	}
@@ -26,8 +27,17 @@ func (s *FilesService) GetFileByHash(hash string) (*models.File, error) {
 	return file, err
 }
 
-func (s *FilesService) AddFile(userId int, fileName, filePath, fileType string) error {
-	err := s.repo.AddFile(userId, fileName, filePath, fileType)
+func (s *FilesService) AddFile(userId int, folderId *int, size int64, fileName, fileType string) error {
+	files, err := s.GetFilesInFolder(folderId, userId)
+	if err != nil {
+		return err
+	}
+	for _, file := range files {
+		if file.FileName == fileName {
+			return errors.New("file already exists")
+		}
+	}
+	err = s.repo.AddFile(userId, folderId, size, fileName, fileType)
 	return err
 }
 

@@ -58,15 +58,15 @@ func LoginHandler() http.Handler {
 	})
 }
 
-func AddFileHandler() http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodPost {
-			http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
-			return
-		}
-		http.ServeFile(w, r, "./static/adding_file.html")
-	})
-}
+// func AddFileHandler() http.Handler {
+// 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+// 		if r.Method != http.MethodPost {
+// 			http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
+// 			return
+// 		}
+// 		http.ServeFile(w, r, "./static/adding_file.html")
+// 	})
+// }
 
 func RegisterHandler() http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -79,7 +79,7 @@ func RegisterHandler() http.Handler {
 	})
 }
 
-func ShowAllFiles() http.Handler {
+func ShowFolderEntities() http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodGet {
 			http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
@@ -92,22 +92,24 @@ func ShowAllFiles() http.Handler {
 		}
 		defer r.Body.Close()
 		r.Body = io.NopCloser(io.Reader(bytes.NewReader(body)))
-		bodyResp, _, err := ProxyRequest(r, "http://localhost:9996/files", r.Body, http.MethodGet)
+		bodyResp, _, err := ProxyRequest(r, "http://localhost:9996/"+r.URL.Path, r.Body, http.MethodGet)
 		r.Body = io.NopCloser(io.Reader(bytes.NewReader(body)))
 
-		type dataStruct struct {
-			Files []models.File
+		var data struct {
+			Files            []models.File
+			Folders          []models.Folder
+			ParentFolderHash string
 		}
-		var files []models.File
-		err = json.NewDecoder(io.Reader(bytes.NewReader((bodyResp)))).Decode(&files)
+		data.ParentFolderHash = ""
+
+		err = json.NewDecoder(io.Reader(bytes.NewReader((bodyResp)))).Decode(&data)
 		if err != nil {
 			http.Error(w, "Failed to decode JSON", http.StatusBadRequest)
 			return
 		}
-		var data = dataStruct{Files: files}
 
 		templates := []string{
-			"./static/files.tmpl",
+			"./static/folders.tmpl",
 		}
 
 		ts, err := template.ParseFiles(templates...)
@@ -147,38 +149,43 @@ func ShowFile() http.Handler {
 			return
 		}
 
-		type File struct {
-			models.File
-			Format   string
-			FileData string
+		var file struct {
+			File       models.File
+			FolderHash string
 		}
-		type dataStruct struct {
-			File File
+
+		var data struct {
+			File       models.File
+			FolderHash string
+			Format     string
+			FileData   string
 		}
-		var file File
+
 		err = json.NewDecoder(io.Reader(bytes.NewReader((bodyResp)))).Decode(&file)
 		if err != nil {
 			http.Error(w, "404 Page Not Found", http.StatusNotFound)
 			return
 		}
-		file.Format = strings.Split(file.FileType, "/")[0]
-
+		data.Format = strings.Split(file.File.FileType, "/")[0]
 		fileDataBytes, _, err := ProxyRequest(r, "http://localhost:9996/download/"+strings.Split(r.URL.Path, "/")[2], r.Body, http.MethodGet)
 		if err != nil {
+			log.Println(err)
 			http.Error(w, "Error fetching file", http.StatusInternalServerError)
 			return
 		}
 
 		r.Body = io.NopCloser(io.Reader(bytes.NewReader(body)))
 
-		if file.Format == "image" {
-			file.FileData = base64.StdEncoding.EncodeToString(fileDataBytes)
-		} else if file.Format == "text" {
-			file.FileData = string(fileDataBytes)
+		if data.Format == "image" {
+			data.FileData = base64.StdEncoding.EncodeToString(fileDataBytes)
+		} else if data.Format == "text" {
+			data.FileData = string(fileDataBytes)
 		} else {
-			file.FileData = ""
+			data.FileData = ""
 		}
-		var data = dataStruct{File: file}
+
+		data.File = file.File
+		data.FolderHash = file.FolderHash
 
 		templates := []string{
 			"./static/show_file.tmpl",

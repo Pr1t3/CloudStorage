@@ -11,22 +11,24 @@ import (
 func main() {
 	mux := http.NewServeMux()
 
-	mux.Handle("/login/", handler.ProxyHandlerRedirect("http://localhost:9999", "http://localhost:9997/files"))
-	mux.Handle("/register/", handler.ProxyHandlerRedirect("http://localhost:9999", "http://localhost:9997/files"))
+	mux.Handle("/login/", handler.ProxyHandlerRedirect("http://localhost:9999", "http://localhost:9997/folders"))
+	mux.Handle("/register/", handler.ProxyHandlerRedirect("http://localhost:9999", "http://localhost:9997/folders"))
 	mux.Handle("/logout/", handler.ProxyHandlerRedirect("http://localhost:9999", "http://localhost:9997/login/"))
-	mux.Handle("/add_file/", handler.ProxyHandlerRedirect("http://localhost:9996", "http://localhost:9997/files"))
+	mux.Handle("/add_file/", handler.ProxyHandler("http://localhost:9996"))
 	mux.Handle("/download/", handler.ProxyHandler("http://localhost:9996"))
-	mux.Handle("/delete/", handler.ProxyHandlerRedirect("http://localhost:9996", "http://localhost:9997/files"))
-	mux.Handle("/start-share-status/", handler.ProxyHandlerRedirect("http://localhost:9996", "http://localhost:9997/files"))
-	mux.Handle("/stop-share-status/", handler.ProxyHandlerRedirect("http://localhost:9996", "http://localhost:9997/files"))
+	mux.Handle("/delete-file/", handler.ProxyHandlerRedirect("http://localhost:9996", "http://localhost:9997/folders"))
+	mux.Handle("/delete-folder/", handler.ProxyHandlerRedirect("http://localhost:9996", "http://localhost:9997/folders"))
+	mux.Handle("/start-share-status/", handler.ProxyHandlerRedirect("http://localhost:9996", "http://localhost:9997/folders"))
+	mux.Handle("/stop-share-status/", handler.ProxyHandlerRedirect("http://localhost:9996", "http://localhost:9997/folders"))
 	mux.Handle("/change-password", handler.ProxyHandlerRedirect("http://localhost:9999", "http://localhost:9997/profile/"))
 	mux.Handle("/upload-photo", handler.ProxyHandler("http://localhost:9999"))
+	mux.Handle("/create_folder/", handler.ProxyHandler("http://localhost:9996"))
 
 	services := []string{"http://localhost:9997", "http://localhost:9998", "http://localhost:9999", "http://localhost:9996", "http://localhost:9995"}
 	corsHandler := cors.New(cors.Options{
 		AllowedOrigins:   services,                                 // Разрешаем только домен фронтенда
 		AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE"}, // Разрешаем методы
-		AllowedHeaders:   []string{"Content-Type"},                 // Разрешаем заголовок Content-Type
+		AllowedHeaders:   []string{"Content-Type", "Hash"},         // Разрешаем заголовок Content-Type
 		AllowCredentials: true,                                     // Разрешаем куки
 	})
 

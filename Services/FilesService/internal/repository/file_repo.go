@@ -13,13 +13,22 @@ type FileRepo struct {
 	Db *sql.DB
 }
 
-func NewRepository(db *sql.DB) *FileRepo {
+func NewFileRepository(db *sql.DB) *FileRepo {
 	return &FileRepo{Db: db}
 }
 
-func (f *FileRepo) AddFile(userId int, fileName, filePath, fileType string) error {
-	query := `INSERT INTO files (user_id, filename, filepath, filetype) VALUES(?, ?, ?, ?)`
-	row, err := f.Db.Exec(query, userId, fileName, filePath, fileType)
+func (f *FileRepo) AddFile(userId int, folderId *int, size int64, fileName, fileType string) error {
+	var query string
+	var args []interface{} = []interface{}{userId, fileName, fileType, size}
+
+	if folderId == nil {
+		query = `INSERT INTO files (user_id, filename, filetype, size, folder_id) VALUES(?, ?, ?, ?, null)`
+	} else {
+		query = `INSERT INTO files (user_id, filename, filetype, size, folder_id) VALUES(?, ?, ?, ?, ?)`
+		args = append(args, *folderId)
+	}
+
+	row, err := f.Db.Exec(query, args...)
 	if err != nil {
 		return err
 	}
@@ -41,18 +50,27 @@ func (f *FileRepo) DeleteFile(hash string) error {
 }
 
 func (f *FileRepo) GetFileByHash(hash string) (*models.File, error) {
-	query := `SELECT id, hash, user_id, filename, filepath, filetype, sharestatus, uploaded_at FROM files where hash = ?`
+	query := `SELECT id, hash, user_id, filename, filetype, size, folder_id, sharestatus, uploaded_at FROM files where hash = ?`
 	row := f.Db.QueryRow(query, hash)
 	file := &models.File{}
-	if err := row.Scan(&file.ID, &file.Hash, &file.User_id, &file.FileName, &file.FilePath, &file.FileType, &file.ShareStatus, &file.Uploaded_at); err != nil {
+	if err := row.Scan(&file.ID, &file.Hash, &file.User_id, &file.FileName, &file.FileType, &file.Size, &file.FolderId, &file.ShareStatus, &file.Uploaded_at); err != nil {
 		return nil, err
 	}
 	return file, nil
 }
 
-func (f *FileRepo) GetUserFiles(userId int) ([]models.File, error) {
-	query := `SELECT id, hash, user_id, filename, filepath, filetype, sharestatus, uploaded_at FROM files where user_id = ?`
-	rows, err := f.Db.Query(query, userId)
+func (f *FileRepo) GetFilesInFolder(folderId *int, userId int) ([]models.File, error) {
+	var query string
+	var args []interface{} = []interface{}{userId}
+
+	if folderId == nil {
+		query = `SELECT id, hash, user_id, filename, filetype, size, folder_id, sharestatus, uploaded_at FROM files WHERE folder_id IS NULL and user_id = ?`
+	} else {
+		query = `SELECT id, hash, user_id, filename, filetype, size, folder_id, sharestatus, uploaded_at FROM files WHERE user_id = ? and folder_id = ?`
+		args = append(args, *folderId)
+	}
+
+	rows, err := f.Db.Query(query, args...)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, nil
@@ -63,7 +81,7 @@ func (f *FileRepo) GetUserFiles(userId int) ([]models.File, error) {
 	var files []models.File
 	for rows.Next() {
 		file := &models.File{}
-		if err := rows.Scan(&file.ID, &file.Hash, &file.User_id, &file.FileName, &file.FilePath, &file.FileType, &file.ShareStatus, &file.Uploaded_at); err != nil {
+		if err := rows.Scan(&file.ID, &file.Hash, &file.User_id, &file.FileName, &file.FileType, &file.Size, &file.FolderId, &file.ShareStatus, &file.Uploaded_at); err != nil {
 			return nil, err
 		}
 		files = append(files, *file)

@@ -15,8 +15,9 @@ func main() {
 
 	mux.Handle("/upload/", storageHandler.UploadFile())
 	mux.Handle("/download", storageHandler.DownloadFile())
-	mux.Handle("/delete", storageHandler.DeleteFile())
-	mux.Handle("/upload-on-exact-place", storageHandler.UploadFileOnExactPlace())
+	mux.Handle("/delete-file", storageHandler.DeleteFile())
+	mux.Handle("/create_folder/", storageHandler.CreateFolder())
+	mux.Handle("/delete-folder", storageHandler.DeleteFolder())
 
 	services := []string{"http://localhost:9997", "http://localhost:9998", "http://localhost:9999", "http://localhost:9996", "http://localhost:9995"}
 	corsHandler := cors.New(cors.Options{

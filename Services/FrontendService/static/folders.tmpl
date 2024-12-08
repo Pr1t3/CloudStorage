@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Мой Диск</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #f5f5f5;
+        }
+        header {
+            background-color: #007bff;
+            color: white;
+            padding: 10px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        header h1 {
+            margin: 0;
+            font-size: 24px;
+        }
+        header button {
+            background-color: white;
+            color: #007bff;
+            border: none;
+            padding: 10px 20px;
+            cursor: pointer;
+            font-size: 16px;
+            border-radius: 4px;
+        }
+        .container {
+            margin: 20px;
+        }
+        .file-list {
+            margin: 20px 0;
+            padding: 10px;
+            background-color: white;
+            border-radius: 8px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+        }
+        .file-list h2 {
+            margin: 0;
+            font-size: 18px;
+        }
+        .file-list ul {
+            list-style-type: none;
+            padding: 0;
+        }
+        .file-list ul li {
+            padding: 8px 0;
+            border-bottom: 1px solid #ddd;
+        }
+        .actions {
+            display: flex;
+            gap: 10px;
+        }
+        .files .action-button, .actions button, .folders .action-button {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            cursor: pointer;
+            font-size: 16px;
+            border-radius: 4px;
+        }
+        #loginModal {
+            display: none;
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background-color: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 0 15px rgba(0, 0, 0, 0.3);
+            width: 300px;
+        }
+        #loginModal input {
+            width: 100%;
+            padding: 10px;
+            margin: 10px 0;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+        }
+        #loginModal button {
+            width: 100%;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            padding: 10px;
+            cursor: pointer;
+            font-size: 16px;
+            border-radius: 4px;
+        }
+        #loginModal button.close {
+            background-color: #f44336;
+            margin-top: 10px;
+        }
+        .text-button {
+            background: none;
+            border: none;
+            color: inherit;
+            font: inherit;
+            cursor: pointer;
+            padding: 0;
+            text-decoration: none;
+        }
+    </style>
+</head>
+<body>
+
+<header>
+    <h1>Мой Диск</h1>
+</header>
+
+<div class="container">
+    <div class="file-list">
+        <h2>Мои файлы</h2>
+        <ul>
+            {{ if not .Folders }}
+                {{ if not .Files }}
+                    Пока что эта папка пуста!
+                {{ end }}
+            {{ end }}
+            <div class="folders">
+                {{ if .Folders }}
+                    {{ range .Folders}}
+                        <li style="display: flex;flex-direction: row; align-items:center">
+                            <form method="GET" action="http://localhost:9997/folders/{{ .Hash }}" style="width: 20%">
+                                <p>
+                                    <button class="text-button"type="submit">Папка: {{ .FolderName }}</button>
+                                </p>
+                            </form>
+                            <form method="Post" action="http://localhost:9998/delete-folder/{{ .Hash }}" style="margin-left: 39%; width: 10%">
+                                <button type="submit" class="action-button">Удалить</button>
+                            </form>
+                        </li>
+                    {{ end }}
+                {{ end }}
+            </div>
+            <div class="files">
+                {{ if .Files }}
+                    {{ range .Files }}
+                        <li style="display: flex;flex-direction: row; align-items:center">
+                            <form method="GET" action="http://localhost:9997/files/{{ .Hash }}" style="width: 20%">
+                                <p>
+                                    <button class="text-button"type="submit">Файл: {{ .FileName }}</button>
+                                </p>
+                            </form>
+                            <form method="POST" action="http://localhost:9998/delete-file/{{ .Hash }}" style="margin-left: 39%; width: 10%">
+                                <button type="submit" class="action-button">Удалить</button>
+                            </form>
+                            {{ if .ShareStatus }}
+                                <form method="POST" action="http://localhost:9998/stop-share-status/{{ .Hash }}" style="margin-left: 2%; width: 10%">
+                                    <button type="submit"class="action-button">Перестать делиться</button>
+                                </form>
+                            {{ else }}
+                                <form method="POST" action="http://localhost:9998/start-share-status/{{ .Hash }}" style="margin-left: 2%; width: 10%">
+                                    <button type="submit"class="action-button">Поделиться</button>
+                                </form>
+                            {{ end }}
+                            <form method="GET" action="http://localhost:9998/download/{{ .Hash }}" style="margin-left: 2%; width: 5%">
+                                <button type="submit"class="action-button">Скачать</button>
+                            </form>
+                        </li>
+                    {{ end }}
+                {{ end }}
+            </div>
+        </ul>
+    </div>
+    <div class="actions">
+        <input type="file" id="addFile" name="file" style="display: none;" onchange="uploadFile(event)">
+        <button onclick="document.getElementById('addFile').click();">Добавить файл</button>
+        <button onclick="openFolderModal()">Создать папку</button>
+        <form method="GET" action="http://localhost:9997/profile/">
+            <button type="submit">Профиль</button>
+        </form>
+        <form method="POST" action="http://localhost:9998/logout/">
+            <button type="submit">Выйти</button>
+        </form>
+        {{ if eq .ParentFolderHash "" }}
+            <form method="GET" action="http://localhost:9997/folders/" >
+                <button type="submit">Назад</button>
+            </form>
+        {{ else if ne .ParentFolderHash "null"}}
+            <form method="GET" action="http://localhost:9997/folders/{{ .ParentFolderHash }}" >
+                <button type="submit">Назад</button>
+            </form>
+        {{ end }}
+    </div>
+    <div id="folderModal" style="display:none; position:fixed; left:50%; top:50%; transform:translate(-50%, -50%); background-color:white; padding:20px; border-radius:5px; box-shadow:0 0 10px rgba(0,0,0,0.1);">
+        <h3>Создать новую папку</h3>
+        <input type="text" id="folderName" placeholder="Введите имя папки">
+        <button onclick="createFolder()">Создать</button>
+        <button onclick="closeFolderModal()">Отмена</button>
+    </div>
+    <p id="errorMessage" class="error"></p>
+</div>
+<script>
+    async function uploadFile(event) {
+        const file = event.target.files[0];
+        const errorMessage = document.getElementById("errorMessage");
+
+        if (!file) return;
+
+        const formData = new FormData();
+        formData.append('fileToUpload', file);
+        const urlParts = window.location.pathname.split('/');
+        const folderHash = urlParts[urlParts.length - 1];
+
+        try {
+            const response = await fetch('http://localhost:9998/add_file/', {
+                method: 'POST',
+                body: formData,
+                headers : {
+                    "Hash" : folderHash
+                },
+                credentials: 'include'
+            });
+
+            if (response.ok) {
+                location.reload();
+            } else {
+                const errorData = await response.json();
+                errorMessage.textContent = errorData.error || "Произошла ошибка при загрузке файла.";
+            }
+        } catch (error) {
+            console.log(error)
+            errorMessage.textContent = "Не удалось подключиться к серверу.";
+        }
+    }
+    function openFolderModal() {
+        document.getElementById('folderModal').style.display = 'block';
+    }
+
+    function closeFolderModal() {
+        document.getElementById('folderModal').style.display = 'none';
+    }
+
+    async function createFolder() {
+        const folderName = document.getElementById('folderName').value;
+        const errorMessage = document.getElementById("errorMessage");
+
+        if (!folderName) {
+            errorMessage.textContent = "Пожалуйста, введите имя папки.";
+            return;
+        }
+
+        const urlParts = window.location.pathname.split('/');
+        const folderHash = urlParts[urlParts.length - 1];
+
+        try {
+            const response = await fetch('http://localhost:9998/create_folder/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ folderName: folderName, hash: folderHash }),
+                credentials: 'include'
+            });
+
+            if (response.ok) {
+                location.reload();
+            } else {
+                const errorData = await response.json();
+                errorMessage.textContent = errorData.error || "Произошла ошибка при создании папки.";
+            }
+        } catch (error) {
+            console.log(error);
+            errorMessage.textContent = "Не удалось подключиться к серверу.";
+        }
+
+        closeFolderModal();
+    }
+</script>
+</body>
+</html>

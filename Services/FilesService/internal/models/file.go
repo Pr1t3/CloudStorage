@@ -1,6 +1,7 @@
 package models
 
 import (
+	"database/sql"
 	"time"
 )
 
@@ -9,8 +10,9 @@ type File struct {
 	User_id     int
 	Hash        string
 	FileName    string
-	FilePath    string
 	FileType    string
+	Size        int64
+	FolderId    sql.NullInt32
 	ShareStatus bool
 	Uploaded_at time.Time
 }

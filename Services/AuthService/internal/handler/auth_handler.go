@@ -10,6 +10,7 @@ import (
 	"log"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 )
 
@@ -236,7 +237,7 @@ func (h *AuthHandler) GetProfilePhoto() http.Handler {
 		}
 
 		if !user.Photo_path.Valid {
-			reqBody.FilePath = "./uploads/DefaultPhotoProfile.png"
+			reqBody.FilePath = "DefaultPhotoProfile.png"
 		} else {
 			reqBody.FilePath = user.Photo_path.String
 		}
@@ -344,15 +345,40 @@ func (f *AuthHandler) UploadPhoto() http.Handler {
 			return
 		}
 
-		photoPath := "./uploads/profile_photos/" + strconv.Itoa(claims.UserId) + ".png"
+		photoPath := "profile_photos/"
+		fileName := strconv.Itoa(claims.UserId)
 
 		r.Header.Add("FilePath", photoPath)
+		r.Header.Add("FileName", fileName)
+		r.Header.Add("UserId", strconv.Itoa(claims.UserId))
 
-		respBody, _, err := f.ProxyRequest(r, "http://localhost:9995/upload-on-exact-place", r.Body, http.MethodPost)
-		r.Body = io.NopCloser(io.Reader(bytes.NewReader(body)))
+		user, err := f.authService.GetUserByEmail(claims.Email)
+		if user.Photo_path.Valid {
+			var reqBody struct {
+				FilePath string
+			}
+			reqBody.FilePath = user.Photo_path.String
+			jsonData, err := json.Marshal(reqBody)
+			if err != nil {
+				log.Println(err)
+				http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+				return
+			}
+			_, _, err = f.ProxyRequest(r, "http://localhost:9995/delete-file", bytes.NewBuffer(jsonData), http.MethodPost)
+			r.Body = io.NopCloser(io.Reader(bytes.NewReader(body)))
+			if err != nil {
+				log.Println(err)
+				http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+				return
+			}
+		}
+
+		respBody, _, err := f.ProxyRequest(r, "http://localhost:9995/upload/", r.Body, http.MethodPost)
 
 		var responseData struct {
-			PhotoType string
+			FileType string
+			FileName string
+			Size     int64
 		}
 
 		if err := json.Unmarshal(respBody, &responseData); err != nil {
@@ -361,7 +387,7 @@ func (f *AuthHandler) UploadPhoto() http.Handler {
 			return
 		}
 
-		err = f.authService.UploadPhoto(claims.UserId, photoPath, responseData.PhotoType)
+		err = f.authService.UploadPhoto(claims.UserId, photoPath+fileName+"."+strings.Split(responseData.FileType, "/")[1], responseData.FileType)
 		if err != nil {
 			log.Println(err)
 			http.Error(w, "Internal Server Error", http.StatusInternalServerError)

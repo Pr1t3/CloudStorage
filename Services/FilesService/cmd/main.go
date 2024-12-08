@@ -21,15 +21,17 @@ func main() {
 	}
 	defer db.Close()
 
-	filesHandler := handler.NewFilesHandler(service.NewFilesService(*repository.NewRepository(db)))
+	filesHandler := handler.NewFilesHandler(service.NewFilesService(*repository.NewFileRepository(db)), service.NewFolderService(*repository.NewFolderRepository(db)))
 
 	mux.Handle("/files/", filesHandler.GetFileByHash())
-	mux.Handle("/files", middleware.VerifyAuthMiddleware(filesHandler.GetAllFiles()))
+	mux.Handle("/folders/", middleware.VerifyAuthMiddleware(filesHandler.GetFolderEntities()))
 	mux.Handle("/add_file/", middleware.VerifyAuthMiddleware(filesHandler.AddFile()))
 	mux.Handle("/download/", filesHandler.DownloadFile())
 	mux.Handle("/stop-share-status/", middleware.VerifyAuthMiddleware(filesHandler.ChangeShareStatus(false)))
 	mux.Handle("/start-share-status/", middleware.VerifyAuthMiddleware(filesHandler.ChangeShareStatus(true)))
-	mux.Handle("/delete/", middleware.VerifyAuthMiddleware(filesHandler.DeleteFile()))
+	mux.Handle("/delete-file/", middleware.VerifyAuthMiddleware(filesHandler.DeleteFile()))
+	mux.Handle("/delete-folder/", middleware.VerifyAuthMiddleware(filesHandler.DeleteFolder()))
+	mux.Handle("/create_folder/", middleware.VerifyAuthMiddleware(filesHandler.CreateFolder()))
 
 	services := []string{"http://localhost:9997", "http://localhost:9998", "http://localhost:9999", "http://localhost:9996", "http://localhost:9995"}
 	corsHandler := cors.New(cors.Options{
