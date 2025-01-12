@@ -15,7 +15,7 @@ import (
 
 func main() {
 	mux := http.NewServeMux()
-	db, err := openDB("root:1R2o3m4a?@/CloudStorage_AuthService?parseTime=true")
+	db, err := openDB("name:password@/db_name?parseTime=true")
 	if err != nil {
 		print("Error in opening db")
 	}

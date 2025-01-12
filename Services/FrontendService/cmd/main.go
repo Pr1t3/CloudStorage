@@ -15,7 +15,6 @@ func main() {
 	mux.Handle("/login/", middleware.VerifyNotAuthMiddleware(handler.LoginHandler()))
 	mux.Handle("/register/", middleware.VerifyNotAuthMiddleware(handler.RegisterHandler()))
 	mux.Handle("/folders/", middleware.VerifyAuthMiddleware(handler.ShowFolderEntities()))
-	// mux.Handle("/add_file/", middleware.VerifyAuthMiddleware(handler.AddFileHandler()))
 	mux.Handle("/files/", middleware.VerifyAuthMiddleware(handler.ShowFile()))
 	mux.Handle("/", middleware.VerifyNotAuthMiddleware(handler.LoginHandler()))
 	mux.Handle("/profile/", middleware.VerifyAuthMiddleware(handler.ShowProfile()))
