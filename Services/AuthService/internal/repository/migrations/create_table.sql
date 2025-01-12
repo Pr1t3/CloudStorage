@@ -1,4 +1,4 @@
-use CloudStorage_AuthService;
+use Cloud_AuthService;
 drop table users;
 CREATE TABLE users (
     id int PRIMARY KEY AUTO_INCREMENT,
