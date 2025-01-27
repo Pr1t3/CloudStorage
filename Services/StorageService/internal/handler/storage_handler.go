@@ -9,6 +9,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -18,7 +19,7 @@ type StorageHandler struct {
 }
 
 func NewStorageHandler() *StorageHandler {
-	return &StorageHandler{forbiddenError: errors.New("Status Forbidden")}
+	return &StorageHandler{forbiddenError: errors.New("status forbidden")}
 }
 
 type Claims struct {
@@ -54,7 +55,7 @@ func (h *StorageHandler) ProxyRequest(r *http.Request, target string, method str
 	defer resp.Body.Close()
 	body, err := io.ReadAll(resp.Body)
 	r.Body = io.NopCloser(io.Reader(bytes.NewReader(body)))
-	return body, nil
+	return body, err
 }
 
 func (h *StorageHandler) UploadFile() http.Handler {
@@ -81,10 +82,30 @@ func (h *StorageHandler) UploadFile() http.Handler {
 				return
 			}
 		}
+
+		if _, err := os.Stat("./uploads/CloudMusic/"); os.IsNotExist(err) {
+			err = os.Mkdir("./uploads/CloudMusic/", os.ModePerm)
+			if err != nil {
+				log.Println(err)
+				http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+				return
+			}
+		}
+
 		if r.Header.Get("UserId") == "" {
 			http.Error(w, "UserId header is required", http.StatusBadRequest)
 			return
 		}
+
+		if _, err := os.Stat("./uploads/CloudMusic/" + r.Header.Get("UserId")); os.IsNotExist(err) {
+			err = os.Mkdir("./uploads/CloudMusic/"+r.Header.Get("UserId"), os.ModePerm)
+			if err != nil {
+				log.Println(err)
+				http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+				return
+			}
+		}
+
 		if _, err := os.Stat("./uploads/" + r.Header.Get("UserId")); os.IsNotExist(err) {
 			err = os.Mkdir("./uploads/"+r.Header.Get("UserId"), os.ModePerm)
 			if err != nil {
@@ -168,13 +189,19 @@ func (h *StorageHandler) DownloadFile() http.Handler {
 			return
 		}
 		defer r.Body.Close()
+
 		var file struct {
-			FilePath string
+			FilePath string `json:"filePath"`
 		}
 
 		err = json.Unmarshal(body, &file)
+		if err != nil {
+			http.Error(w, "Invalid JSON", http.StatusBadRequest)
+			return
+		}
 
-		openedFile, err := os.Open("./uploads/" + file.FilePath)
+		filePath := "./uploads/" + file.FilePath
+		openedFile, err := os.Open(filePath)
 		if err != nil {
 			log.Println(err)
 			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
@@ -189,11 +216,50 @@ func (h *StorageHandler) DownloadFile() http.Handler {
 			return
 		}
 
-		w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=%s", fileInfo.Name()))
-		w.Header().Set("Content-Type", "application/octet-stream")
-		w.Header().Set("Content-Length", fmt.Sprintf("%d", fileInfo.Size()))
+		rangeHeader := r.Header.Get("Range")
+		if rangeHeader != "" {
+			ranges := strings.Split(rangeHeader, "=")[1]
+			rangeParts := strings.Split(ranges, "-")
+			start, err := strconv.Atoi(rangeParts[0])
+			if err != nil {
+				http.Error(w, "Invalid Range", http.StatusRequestedRangeNotSatisfiable)
+				return
+			}
+			end := start
+			if len(rangeParts) == 2 && rangeParts[1] != "" {
+				end, err = strconv.Atoi(rangeParts[1])
+				if err != nil {
+					http.Error(w, "Invalid Range", http.StatusRequestedRangeNotSatisfiable)
+					return
+				}
+			} else {
+				end = int(fileInfo.Size()) - 1
+			}
 
-		http.ServeContent(w, r, fileInfo.Name(), fileInfo.ModTime(), openedFile)
+			if start > end || start < 0 || end >= int(fileInfo.Size()) {
+				http.Error(w, "Invalid Range", http.StatusRequestedRangeNotSatisfiable)
+				return
+			}
+
+			w.Header().Set("Content-Range", fmt.Sprintf("bytes %d-%d/%d", start, end, fileInfo.Size()))
+			w.Header().Set("Accept-Ranges", "bytes")
+			w.Header().Set("Content-Type", "application/octet-stream")
+			w.Header().Set("Content-Length", fmt.Sprintf("%d", end-start+1))
+			w.WriteHeader(http.StatusPartialContent)
+
+			_, err = openedFile.Seek(int64(start), io.SeekStart)
+			if err != nil {
+				http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+				return
+			}
+
+			io.CopyN(w, openedFile, int64(end-start+1))
+		} else {
+			w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=%s", fileInfo.Name()))
+			w.Header().Set("Content-Type", "application/octet-stream")
+			w.Header().Set("Content-Length", fmt.Sprintf("%d", fileInfo.Size()))
+			http.ServeContent(w, r, fileInfo.Name(), fileInfo.ModTime(), openedFile)
+		}
 	})
 }
 
@@ -210,6 +276,10 @@ func (h *StorageHandler) DeleteFile() http.Handler {
 		}
 
 		err = json.Unmarshal(body, &file)
+		if err != nil {
+			http.Error(w, "Invalid JSON", http.StatusBadRequest)
+			return
+		}
 
 		err = os.Remove("./uploads/" + file.FilePath)
 		if err != nil {
@@ -267,6 +337,10 @@ func (h *StorageHandler) DeleteFolder() http.Handler {
 		}
 
 		err = json.Unmarshal(body, &folder)
+		if err != nil {
+			http.Error(w, "Invalid JSON", http.StatusBadRequest)
+			return
+		}
 
 		err = os.RemoveAll("./uploads/" + folder.FolderPath)
 		if err != nil {

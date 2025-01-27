@@ -21,14 +21,14 @@ func main() {
 
 	services := []string{"http://localhost:9997", "http://localhost:9998", "http://localhost:9999", "http://localhost:9996", "http://localhost:9995"}
 	corsHandler := cors.New(cors.Options{
-		AllowedOrigins:   services,                                 // Разрешаем только домен фронтенда
-		AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE"}, // Разрешаем методы
-		AllowedHeaders:   []string{"Content-Type"},                 // Разрешаем заголовок Content-Type
-		AllowCredentials: true,                                     // Разрешаем куки
+		AllowedOrigins:   services,
+		AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE"},
+		AllowedHeaders:   []string{"Content-Type"},
+		AllowCredentials: true,
 	})
 
-	log.Println("API Gateway starting on port 9995...")
+	log.Println("Storage Service starting on port 9995...")
 	if err := http.ListenAndServe(":9995", corsHandler.Handler(mux)); err != nil {
-		log.Fatalf("Failed to start API Gateway: %v", err)
+		log.Fatalf("Failed to start Storage Service: %v", err)
 	}
 }

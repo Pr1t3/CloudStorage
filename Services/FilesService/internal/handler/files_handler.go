@@ -56,7 +56,7 @@ type FilesHandler struct {
 }
 
 func NewFilesHandler(filesService *service.FilesService, folderService *service.FolderService) *FilesHandler {
-	return &FilesHandler{filesService: filesService, folderService: folderService, forbiddenError: errors.New("Status Forbidden")}
+	return &FilesHandler{filesService: filesService, folderService: folderService, forbiddenError: errors.New("status forbidden")}
 }
 
 func (f *FilesHandler) GetFolderEntities() http.HandlerFunc {
@@ -166,6 +166,10 @@ func (f *FilesHandler) GetFileByHash() http.Handler {
 		r.Body = io.NopCloser(io.Reader(bytes.NewReader(body)))
 
 		respBody, _, err := f.ProxyRequest(r, "http://localhost:9999/get-claims/", nil, http.MethodGet)
+		if err != nil {
+			http.Error(w, "Server Internal Error", http.StatusInternalServerError)
+			return
+		}
 		r.Body = io.NopCloser(io.Reader(bytes.NewReader(body)))
 
 		var claims Claims
@@ -253,6 +257,10 @@ func (f *FilesHandler) ChangeShareStatus(status bool) http.Handler {
 		r.Body = io.NopCloser(io.Reader(bytes.NewReader(body)))
 
 		respBody, _, err := f.ProxyRequest(r, "http://localhost:9999/get-claims/", nil, http.MethodGet)
+		if err != nil {
+			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+			return
+		}
 		r.Body = io.NopCloser(io.Reader(bytes.NewReader(body)))
 
 		var claims Claims
@@ -292,6 +300,10 @@ func (f *FilesHandler) AddFile() http.Handler {
 		r.Body = io.NopCloser(io.Reader(bytes.NewReader(body)))
 
 		respBody, _, err := f.ProxyRequest(r, "http://localhost:9999/get-claims/", nil, http.MethodGet)
+		if err != nil {
+			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+			return
+		}
 		// r.Body = io.NopCloser(io.Reader(bytes.NewReader(body)))
 
 		var claims Claims
@@ -322,6 +334,10 @@ func (f *FilesHandler) AddFile() http.Handler {
 		r.Header.Add("FilePath", filePath)
 		r.Header.Add("UserId", strconv.Itoa(claims.UserId))
 		respBody, _, err = f.ProxyRequest(r, "http://localhost:9995/upload/", r.Body, http.MethodPost)
+		if err != nil {
+			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+			return
+		}
 		r.Body = io.NopCloser(io.Reader(bytes.NewReader(body)))
 
 		var responseData struct {
